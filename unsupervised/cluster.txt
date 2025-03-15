@@ -1,0 +1,92 @@
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+
+# Function to process unstructured data (CSV)
+def process_unstructured_data(uploaded_file):
+    try:
+        df = pd.read_csv(uploaded_file)
+        st.write("### Uploaded Data:")
+        st.write(df)
+
+        # Check if the required columns are present
+        if "Frequency" in df.columns and "Price range" in df.columns:
+            st.subheader("K-Means Clustering Analysis")
+            process_kmeans_clustering(df)
+        else:
+            st.error("CSV file must contain 'Frequency' and 'Price range' columns.")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+# Function to perform K-Means clustering
+def process_kmeans_clustering(df):
+    try:
+        # Standardize the data
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(df[["Frequency", "Price range"]])
+
+        # Perform K-Means clustering
+        kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+        df["cluster"] = kmeans.fit_predict(scaled_data)
+
+        # Display the updated dataset with clusters
+        st.subheader("Updated Dataset with Clusters:")
+        st.write(df)
+
+        # Cluster Interpretations
+        st.subheader("Cluster Interpretations")
+        cluster_info = {
+            0: "Cluster 0: Low Frequency, Low Price Range",
+            1: "Cluster 1: High Frequency, High Price Range",
+            2: "Cluster 2: Medium Frequency, Medium Price Range"
+        }
+
+        for cluster, meaning in cluster_info.items():
+            st.write(f"{meaning}")
+
+        # Plot the clusters
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(df["Frequency"], df["Price range"], c=df["cluster"], cmap="viridis", edgecolors="k")
+        plt.colorbar(scatter, label="Cluster")
+        plt.xlabel("Frequency of Purchases")
+        plt.ylabel("Price Range")
+        plt.title("K-Means Clustering of Items")
+        st.pyplot(plt)
+
+        # Plotly 3D Scatter Plot (if additional features are available)
+        if "Quantity" in df.columns:
+            fig_3d = px.scatter_3d(
+                df,
+                x="Frequency",
+                y="Price range",
+                z="Quantity",
+                color="cluster",
+                title="3D Clustering Visualization",
+                color_discrete_sequence=px.colors.qualitative.Dark24
+            )
+            st.plotly_chart(fig_3d)
+        else:
+            st.warning("No additional feature (e.g., Quantity) available for 3D visualization.")
+    except Exception as e:
+        st.error(f"Error during clustering: {str(e)}")
+
+# Main Unsupervised Learning Analysis Function
+def unsupervised_learning_analysis():
+    st.header("📊 Unsupervised Learning Analysis")
+    st.markdown("Upload a CSV file containing unstructured data (e.g., customer purchase data) to perform clustering analysis.")
+
+    # File Uploader
+    uploaded_file = st.file_uploader("Upload Unstructured CSV File", type=["csv"])
+    if uploaded_file:
+        process_unstructured_data(uploaded_file)
+
+# Main Function
+def main():
+    st.title("Finsight 💼 - Unsupervised Learning Analysis")
+    unsupervised_learning_analysis()
+
+if __name__ == "__main__":
+    main()
