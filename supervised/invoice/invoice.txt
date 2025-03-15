@@ -1,0 +1,116 @@
+import pandas as pd
+import streamlit as st
+from PIL import Image
+import pytesseract
+import plotly.express as px
+import re
+import time
+
+# Function to extract text from an image using OCR
+def extract_text_from_image(image):
+    try:
+        extracted_text = pytesseract.image_to_string(image)
+        return extracted_text
+    except Exception as e:
+        st.error(f"Error during OCR: {str(e)}")
+        return None
+
+# Function to process Invoice data
+def process_invoice_data(extracted_text):
+    try:
+        # Example: Parse extracted text into structured data
+        # This is a placeholder for actual parsing logic
+        # Use regex to extract relevant data (e.g., items, quantities, prices)
+        invoice_data = re.findall(r"(\d+)\s+([\w\s]+)\s+([\d,]+\.\d{2})", extracted_text)
+        
+        # Convert to DataFrame
+        data = {
+            "Item": [t[1] for t in invoice_data],
+            "Quantity": [int(t[0]) for t in invoice_data],
+            "Price": [float(t[2].replace(",", "")) for t in invoice_data]
+        }
+        df = pd.DataFrame(data)
+        df["Total"] = df["Quantity"] * df["Price"]  # Calculate total for each item
+        return df
+    except Exception as e:
+        st.error(f"Error processing data: {str(e)}")
+        return None
+
+# Function to visualize Invoice data
+def visualize_invoice_data(df):
+    try:
+        # Bar Chart for Invoice Amount Breakdown
+        fig_bar = px.bar(
+            df,
+            x="Item",
+            y="Total",
+            title="Invoice Amount Breakdown",
+            color="Item",
+            color_discrete_sequence=px.colors.qualitative.Dark24
+        )
+        st.plotly_chart(fig_bar)
+
+        # Pie Chart for Invoice Amount Distribution
+        fig_pie = px.pie(
+            df,
+            names="Item",
+            values="Total",
+            title="Invoice Amount Distribution",
+            color_discrete_sequence=px.colors.qualitative.Dark24
+        )
+        st.plotly_chart(fig_pie)
+
+        # Table for Detailed Invoice Data
+        st.subheader("Detailed Invoice Data")
+        st.write(df)
+    except Exception as e:
+        st.error(f"Error during visualization: {str(e)}")
+
+# Main Invoice Analysis Function
+def invoice_analysis():
+    st.header("🧾 Invoice Analysis")
+    st.markdown("Upload an image of your Invoice to analyze and visualize the data.")
+
+    # File Uploader
+    uploaded_file = st.file_uploader("Upload Invoice (Image)", type=["jpg", "png", "jpeg"])
+    if uploaded_file:
+        try:
+            # Open the uploaded image
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Invoice", use_column_width=True)
+
+            # Extract text using OCR
+            with st.spinner("🔍 Extracting text from the image..."):
+                extracted_text = extract_text_from_image(image)
+                time.sleep(2)  # Simulate processing time
+
+            if extracted_text:
+                with st.expander("📄 View Extracted Text"):
+                    st.code(extracted_text, language="text")
+
+                # Process extracted text into structured data
+                with st.spinner("📊 Processing data..."):
+                    df = process_invoice_data(extracted_text)
+                    time.sleep(2)  # Simulate processing time
+
+                if df is not None:
+                    st.subheader("Processed Invoice Data")
+                    st.write(df)
+
+                    # Visualize the data
+                    st.subheader("Visualizations")
+                    visualize_invoice_data(df)
+                else:
+                    st.warning("No valid data found in the extracted text.")
+            else:
+                st.warning("No text could be extracted from the image.")
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+
+# Main Function
+def main():
+    st.title("Finsight 💼 - Invoice Analysis")
+    invoice_analysis()
+
+if __name__ == "__main__":
+    main()

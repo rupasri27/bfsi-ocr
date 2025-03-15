@@ -1,0 +1,123 @@
+import pandas as pd
+import streamlit as st
+from PIL import Image
+import pytesseract
+import plotly.express as px
+import re
+import time
+
+# Function to extract text from an image using OCR
+def extract_text_from_image(image):
+    try:
+        extracted_text = pytesseract.image_to_string(image)
+        return extracted_text
+    except Exception as e:
+        st.error(f"Error during OCR: {str(e)}")
+        return None
+
+# Function to process Bank Statement data
+def process_bank_statement_data(extracted_text):
+    try:
+        # Example: Parse extracted text into structured data
+        # This is a placeholder for actual parsing logic
+        # Use regex to extract relevant data (e.g., dates, transactions, amounts)
+        transactions = re.findall(r"(\d{2}/\d{2}/\d{4})\s+([\w\s]+)\s+([\d,]+\.\d{2})", extracted_text)
+        
+        # Convert to DataFrame
+        data = {
+            "Date": [t[0] for t in transactions],
+            "Description": [t[1] for t in transactions],
+            "Amount": [float(t[2].replace(",", "")) for t in transactions]
+        }
+        df = pd.DataFrame(data)
+        return df
+    except Exception as e:
+        st.error(f"Error processing data: {str(e)}")
+        return None
+
+# Function to visualize Bank Statement data
+def visualize_bank_statement_data(df):
+    try:
+        # Bar Chart for Debit and Credit Overview
+        df["Type"] = df["Amount"].apply(lambda x: "Credit" if x > 0 else "Debit")
+        fig_bar = px.bar(
+            df,
+            x="Date",
+            y="Amount",
+            color="Type",
+            title="Bank Statement Overview",
+            color_discrete_sequence=px.colors.qualitative.Dark24
+        )
+        st.plotly_chart(fig_bar)
+
+        # Pie Chart for Transaction Distribution
+        fig_pie = px.pie(
+            df,
+            names="Type",
+            values="Amount",
+            title="Transaction Distribution",
+            color_discrete_sequence=px.colors.qualitative.Dark24
+        )
+        st.plotly_chart(fig_pie)
+
+        # Line Chart for Balance Trend
+        df["Balance"] = df["Amount"].cumsum()  # Simulate balance calculation
+        fig_line = px.line(
+            df,
+            x="Date",
+            y="Balance",
+            title="Balance Trend Over Time",
+            color_discrete_sequence=px.colors.qualitative.Dark24
+        )
+        st.plotly_chart(fig_line)
+    except Exception as e:
+        st.error(f"Error during visualization: {str(e)}")
+
+# Main Bank Statement Analysis Function
+def bank_statement_analysis():
+    st.header("🏦 Bank Statement Analysis")
+    st.markdown("Upload an image of your Bank Statement to analyze and visualize the data.")
+
+    # File Uploader
+    uploaded_file = st.file_uploader("Upload Bank Statement (Image)", type=["jpg", "png", "jpeg"])
+    if uploaded_file:
+        try:
+            # Open the uploaded image
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Bank Statement", use_column_width=True)
+
+            # Extract text using OCR
+            with st.spinner("🔍 Extracting text from the image..."):
+                extracted_text = extract_text_from_image(image)
+                time.sleep(2)  # Simulate processing time
+
+            if extracted_text:
+                with st.expander("📄 View Extracted Text"):
+                    st.code(extracted_text, language="text")
+
+                # Process extracted text into structured data
+                with st.spinner("📊 Processing data..."):
+                    df = process_bank_statement_data(extracted_text)
+                    time.sleep(2)  # Simulate processing time
+
+                if df is not None:
+                    st.subheader("Processed Bank Statement Data")
+                    st.write(df)
+
+                    # Visualize the data
+                    st.subheader("Visualizations")
+                    visualize_bank_statement_data(df)
+                else:
+                    st.warning("No valid data found in the extracted text.")
+            else:
+                st.warning("No text could be extracted from the image.")
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+
+# Main Function
+def main():
+    st.title("Finsight 💼 - Bank Statement Analysis")
+    bank_statement_analysis()
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,103 @@
+import pandas as pd
+import streamlit as st
+from PIL import Image
+import pytesseract
+import plotly.express as px
+
+# Function to extract text from an image using OCR
+def extract_text_from_image(image):
+    try:
+        extracted_text = pytesseract.image_to_string(image)
+        return extracted_text
+    except Exception as e:
+        st.error(f"Error during OCR: {str(e)}")
+        return None
+
+# Function to process Profit and Loss data
+def process_profit_loss_data(extracted_text):
+    try:
+        # Example: Parse extracted text into structured data
+        # This is a placeholder for actual parsing logic
+        data = {
+            "Category": ["Revenue", "COGS", "Operating Expenses", "Net Profit"],
+            "Amount": [100000, 40000, 30000, 30000]
+        }
+        df = pd.DataFrame(data)
+        return df
+    except Exception as e:
+        st.error(f"Error processing data: {str(e)}")
+        return None
+
+# Function to visualize Profit and Loss data
+def visualize_profit_loss_data(df):
+    try:
+        # Pie Chart for Profit & Loss Distribution
+        fig_pie = px.pie(
+            df,
+            names="Category",
+            values="Amount",
+            title="Profit & Loss Distribution",
+            color_discrete_sequence=px.colors.qualitative.Dark24
+        )
+        st.plotly_chart(fig_pie)
+
+        # Bar Chart for Profit & Loss Breakdown
+        fig_bar = px.bar(
+            df,
+            x="Category",
+            y="Amount",
+            title="Profit & Loss Breakdown",
+            color_discrete_sequence=px.colors.qualitative.Dark24
+        )
+        st.plotly_chart(fig_bar)
+    except Exception as e:
+        st.error(f"Error during visualization: {str(e)}")
+
+# Main Profit and Loss Analysis Function
+def profit_loss_analysis():
+    st.header("📊 Profit and Loss Analysis")
+    st.markdown("Upload an image of your Profit and Loss statement to analyze and visualize the data.")
+
+    # File Uploader
+    uploaded_file = st.file_uploader("Upload Profit and Loss Statement (Image)", type=["jpg", "png", "jpeg"])
+    if uploaded_file:
+        try:
+            # Open the uploaded image
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Profit and Loss Statement", use_column_width=True)
+
+            # Extract text using OCR
+            with st.spinner("🔍 Extracting text from the image..."):
+                extracted_text = extract_text_from_image(image)
+                time.sleep(2)  # Simulate processing time
+
+            if extracted_text:
+                with st.expander("📄 View Extracted Text"):
+                    st.code(extracted_text, language="text")
+
+                # Process extracted text into structured data
+                with st.spinner("📊 Processing data..."):
+                    df = process_profit_loss_data(extracted_text)
+                    time.sleep(2)  # Simulate processing time
+
+                if df is not None:
+                    st.subheader("Processed Profit and Loss Data")
+                    st.write(df)
+
+                    # Visualize the data
+                    st.subheader("Visualizations")
+                    visualize_profit_loss_data(df)
+                else:
+                    st.warning("No valid data found in the extracted text.")
+            else:
+                st.warning("No text could be extracted from the image.")
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+
+# Main Function
+def main():
+    st.title("Finsight 💼 - Profit and Loss Analysis")
+    profit_loss_analysis()
+
+if __name__ == "__main__":
+    main()
