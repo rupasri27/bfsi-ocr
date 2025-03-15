@@ -1,0 +1,155 @@
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+
+# Function to check loan eligibility
+def check_loan_eligibility(user_data):
+    try:
+        eligibility = True
+        reasons = []
+
+        # Eligibility Criteria
+        if user_data["credit_score"] < 650:
+            eligibility = False
+            reasons.append("Credit score below 650")
+        if user_data["family_income"] < 300000:
+            eligibility = False
+            reasons.append("Family income below ₹3L")
+        if user_data["tenth_percent"] < 60:
+            eligibility = False
+            reasons.append("10th percentage below 60%")
+        if user_data["course_type"] == "Engineering" and user_data["tuition_fee"] > 1000000:
+            eligibility = False
+            reasons.append("Engineering course fee exceeds limits")
+
+        return eligibility, reasons
+    except Exception as e:
+        st.error(f"Error during eligibility check: {str(e)}")
+        return False, []
+
+# Function to display loan options
+def display_loan_options(eligible_banks):
+    if eligible_banks:
+        df = pd.DataFrame(eligible_banks)
+        st.dataframe(df.style.highlight_max(subset=['Interest Rate'], color='lightgreen'), use_container_width=True)
+    else:
+        st.warning("No banks found matching your criteria")
+
+# Main Loan Eligibility Checker Function
+def loan_eligibility_checker():
+    st.header("🎓 Education Loan Eligibility Checker")
+    st.markdown("Fill in your details to check your eligibility for an education loan.")
+
+    # Bank interest rate data
+    bank_rates = [
+        {"Bank Name": "State Bank of India", "Min Credit Score": 650, "Max Loan Amount": 1500000, "Base Rate": 8.5},
+        {"Bank Name": "HDFC Bank", "Min Credit Score": 700, "Max Loan Amount": 2000000, "Base Rate": 9.0},
+        {"Bank Name": "ICICI Bank", "Min Credit Score": 680, "Max Loan Amount": 1750000, "Base Rate": 8.75},
+        {"Bank Name": "Axis Bank", "Min Credit Score": 670, "Max Loan Amount": 1600000, "Base Rate": 9.25},
+    ]
+
+    with st.form("loan_form"):
+        # Personal Information
+        st.subheader("Personal Information")
+        col1, col2 = st.columns(2)
+        with col1:
+            full_name = st.text_input("Full Name")
+            dob = st.date_input("Date of Birth", min_value=pd.to_datetime('1940-01-01'))
+            country = st.selectbox("Country", ["India", "USA", "UK", "Canada", "Australia"])
+        with col2:
+            state = st.text_input("State")
+            religion = st.selectbox("Religion", ["Hindu", "Muslim", "Christian", "Sikh", "Other"])
+            caste = st.selectbox("Caste Category", ["General", "OBC", "SC", "ST", "Other"])
+        
+        family_income = st.number_input("Family Income (₹)", min_value=0, step=1000)
+
+        # Academic Qualifications
+        st.subheader("Academic Qualifications")
+        school_name = st.text_input("School Name")
+        tenth_percent = st.number_input("10th Percentage", min_value=0.0, max_value=100.0, step=0.1)
+        
+        st.markdown("### Higher Education Details")
+        education_level = st.radio("Higher Education", ["12th", "Diploma", "Graduation"], horizontal=True)
+        
+        if education_level == "12th":
+            twelveth_percent = st.number_input("12th Percentage", min_value=0.0, max_value=100.0, step=0.1)
+            twelveth_college = st.text_input("12th College Name")
+        elif education_level == "Diploma":
+            diploma_percent = st.number_input("Diploma Percentage", min_value=0.0, max_value=100.0, step=0.1)
+        else:
+            grad_percent = st.number_input("Graduation Percentage", min_value=0.0, max_value=100.0, step=0.1)
+
+        # Course Information
+        st.subheader("Course Details")
+        course_type = st.selectbox("Course Type", ["Engineering", "Medical", "MBA", "Law", "Arts", "Vocational Training", "PhD"])
+        uni_name = st.text_input("University/Institution Name")
+        uni_state = st.text_input("State of Institution")
+
+        # Course Fee Information
+        st.subheader("Fee Structure")
+        tuition_fee = st.number_input("Tuition Fee (₹)", min_value=0, step=1000)
+        exam_fee = st.number_input("Exam Fee (₹)", min_value=0, step=1000)
+        living_type = st.radio("Living Type", ["Day Scholar", "Hosteller"], horizontal=True)
+        
+        if living_type == "Hosteller":
+            hostel_fee = st.number_input("Hostel Fee (₹)", min_value=0, step=1000)
+        else:
+            travel_fee = st.number_input("Travel Fee (₹)/ Hostel fee(₹)", min_value=0, step=1000)
+
+        # Parent Details
+        st.subheader("Parent/Guardian Details")
+        father_name = st.text_input("Father's Name")
+        mother_name = st.text_input("Mother's Name")
+        bank_name = st.text_input("Bank Name")
+        branch_name = st.text_input("Branch Name")
+        credit_score = st.number_input("Credit Score", min_value=300, max_value=900)
+
+        if st.form_submit_button("Check Eligibility"):
+            user_data = {
+                "credit_score": credit_score,
+                "family_income": family_income,
+                "tenth_percent": tenth_percent,
+                "course_type": course_type,
+                "tuition_fee": tuition_fee
+            }
+
+            eligibility, reasons = check_loan_eligibility(user_data)
+
+            if eligibility:
+                st.success("🎉 Congratulations! You're eligible for an education loan!")
+
+                # Calculate total loan requirement
+                total_loan = tuition_fee + exam_fee + (hostel_fee if living_type == "Hosteller" else travel_fee)
+
+                # Find eligible banks
+                eligible_banks = []
+                for bank in bank_rates:
+                    if credit_score >= bank["Min Credit Score"] and total_loan <= bank["Max Loan Amount"]:
+                        # Calculate final interest rate with caste benefits
+                        final_rate = bank["Base Rate"]
+                        if caste in ["SC", "ST"]:
+                            final_rate -= 1.5
+                        elif caste == "OBC":
+                            final_rate -= 0.75
+                        final_rate = max(final_rate, 7.5)  # Minimum rate
+                        
+                        eligible_banks.append({
+                            "Bank Name": bank["Bank Name"],
+                            "Interest Rate": f"{final_rate}%",
+                            "Max Loan Amount": f"₹{bank['Max Loan Amount']:,}"
+                        })
+
+                # Display eligible banks
+                st.subheader("Available Loan Options")
+                display_loan_options(eligible_banks)
+            else:
+                st.error(f"⚠️ Eligibility not met. Reasons: {', '.join(reasons)}")
+                st.markdown("💡 **Suggestions:** Improve credit score, explore scholarship options, or consider alternative funding sources.")
+
+# Main Function
+def main():
+    st.title("Finsight 💼 - Loan Eligibility Checker")
+    loan_eligibility_checker()
+
+if __name__ == "__main__":
+    main()
