@@ -1,0 +1,13 @@
+import hashlib
+import pandas as pd
+import streamlit as st
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import plotly.express as px
+import time
+from PIL import Image
+import pytesseract
+import requests
+from bs4 import BeautifulSoup
+import numpy as np
