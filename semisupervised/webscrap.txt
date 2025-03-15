@@ -1,0 +1,120 @@
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+import requests
+from bs4 import BeautifulSoup
+import numpy as np
+
+# Function to scrape semi-structured data from a website
+def scrape_semi_structured_data(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            st.write("Successfully fetched the page!")
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            rows = []
+            table = soup.find('table', class_='datatable-v2_table__93S4Y')
+            if table:
+                table_rows = table.find_all('tr')
+                for row in table_rows[1:]:
+                    columns = row.find_all('td')
+                    if len(columns) > 1:
+                        stock_name = columns[1].text.strip()
+                        stock_price = columns[2].text.strip()
+                        stock_change = columns[5].text.strip()
+                        rows.append({"Stock Name": stock_name, "Price(₹)": stock_price, "Change": stock_change})
+
+                df = pd.DataFrame(rows)
+                return df
+        else:
+            st.error(f"Failed to retrieve webpage. Status Code: {response.status_code}")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+    return None
+
+# Function to visualize semi-structured data
+def visualize_semi_structured_data(df):
+    try:
+        # Clean the Price(₹) column (remove currency symbols and convert to numeric)
+        if df["Price(₹)"].dtype == 'object':  # Check if the column is of type string
+            df["Price(₹)"] = df["Price(₹)"].str.replace('₹', '').str.replace(',', '').astype(float)
+        else:
+            df["Price(₹)"] = df["Price(₹)"].astype(float)  # Ensure it's numeric
+
+        # Drop rows with missing or invalid values in the Price(₹) column
+        df = df.dropna(subset=["Price(₹)"])
+
+        # Display scraped data
+        st.write("Scraped Data:")
+        st.write(df)
+
+        # Line Chart for selected companies
+        st.subheader("Individual Stock Price Trends")
+        all_companies = df["Stock Name"].unique()
+        selected_companies = st.multiselect("Select Companies", all_companies)
+
+        if selected_companies:
+            for company in selected_companies:
+                # Generate random fluctuations for the selected company
+                num_days = 30  # Number of days to simulate
+                date_range = pd.date_range(start='2023-01-01', periods=num_days, freq='D')
+
+                base_price = df[df["Stock Name"] == company]["Price(₹)"].values[0]
+                fluctuations = np.random.normal(loc=0, scale=5, size=num_days)  # Random fluctuations
+                prices = base_price + np.cumsum(fluctuations)  # Add fluctuations to base price
+
+                # Create a DataFrame for the selected company
+                company_data = pd.DataFrame({
+                    "Date": date_range,
+                    "Price(₹)": prices
+                })
+
+                # Debugging: Display the filtered data
+                st.write(f"Data for {company}:")
+                st.write(company_data)
+
+                # Plot the line graph
+                fig_line = px.line(
+                    company_data,
+                    x="Date",  # Use the Date column for the x-axis
+                    y="Price(₹)",
+                    title=f"{company} Stock Price Trend",
+                    color_discrete_sequence=px.colors.qualitative.Dark24,
+                    markers=True  # Add markers to the line chart
+                )
+                st.plotly_chart(fig_line)
+        else:
+            st.warning("Please select at least one company to view trends.")
+    except Exception as e:
+        st.error(f"Error during visualization: {str(e)}")
+
+# Main Semi-Structured Data Analysis Function
+def semi_structured_data_analysis():
+    st.header("📑 Semi-Structured Data Analysis")
+    st.markdown("Enter the URL of a webpage containing semi-structured data (e.g., stock market data) to analyze and visualize the data.")
+
+    # URL Input
+    url = st.text_input("Enter the URL for Web Scraping", "https://www.investing.com/equities")
+
+    # Initialize session state for scraped data and selected companies
+    if 'scraped_data' not in st.session_state:
+        st.session_state['scraped_data'] = None
+
+    if 'selected_companies' not in st.session_state:
+        st.session_state['selected_companies'] = []
+
+    if st.button("Scrape Data"):
+        st.session_state['scraped_data'] = scrape_semi_structured_data(url)
+
+    if st.session_state['scraped_data'] is not None:
+        df = st.session_state['scraped_data']
+        visualize_semi_structured_data(df)
+
+# Main Function
+def main():
+    st.title("Finsight 💼 - Semi-Structured Data Analysis")
+    semi_structured_data_analysis()
+
+if __name__ == "__main__":
+    main()
